@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' | 'Drink';
 type Tab = 'today' | 'log' | 'history';
@@ -13,12 +13,13 @@ type FoodEntry = {
   protein: number;
   note?: string;
   timeLabel: string;
+  dateKey: string;
 };
 
 const SAMPLE_ENTRIES: FoodEntry[] = [
-  { id: '1', name: 'Greek yogurt + berries', mealType: 'Breakfast', calories: 320, protein: 27, timeLabel: '8:40 AM' },
-  { id: '2', name: 'Chicken rice bowl', mealType: 'Lunch', calories: 610, protein: 46, timeLabel: '1:15 PM' },
-  { id: '3', name: 'Protein shake', mealType: 'Snack', calories: 210, protein: 30, timeLabel: '4:20 PM' },
+  { id: '1', name: 'Greek yogurt + berries', mealType: 'Breakfast', calories: 320, protein: 27, timeLabel: '8:40 AM', dateKey: 'sample' },
+  { id: '2', name: 'Chicken rice bowl', mealType: 'Lunch', calories: 610, protein: 46, timeLabel: '1:15 PM', dateKey: 'sample' },
+  { id: '3', name: 'Protein shake', mealType: 'Snack', calories: 210, protein: 30, timeLabel: '4:20 PM', dateKey: 'sample' },
 ];
 
 const QUICK_ADD = [
@@ -28,9 +29,27 @@ const QUICK_ADD = [
   { name: 'Chicken rice bowl', mealType: 'Lunch' as MealType, calories: 610, protein: 46 },
 ];
 
+function localDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function loadEntries(): FoodEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem('fuel-entries');
+    return raw ? (JSON.parse(raw) as FoodEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function HomePage() {
+  const todayKey = localDateKey();
   const [tab, setTab] = useState<Tab>('today');
-  const [entries, setEntries] = useState<FoodEntry[]>(SAMPLE_ENTRIES);
+  const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [draft, setDraft] = useState({
     name: '',
     mealType: 'Dinner' as MealType,
@@ -39,10 +58,43 @@ export default function HomePage() {
     note: ''
   });
 
+  useEffect(() => {
+    const saved = loadEntries();
+    setEntries(saved.length ? saved : SAMPLE_ENTRIES.map((entry) => ({ ...entry, dateKey: todayKey })));
+  }, [todayKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('fuel-entries', JSON.stringify(entries));
+  }, [entries]);
+
+  const todaysEntries = useMemo(
+    () => entries.filter((entry) => entry.dateKey === todayKey),
+    [entries, todayKey]
+  );
+
   const totals = useMemo(() => {
-    const calories = entries.reduce((sum, entry) => sum + entry.calories, 0);
-    const protein = entries.reduce((sum, entry) => sum + entry.protein, 0);
+    const calories = todaysEntries.reduce((sum, entry) => sum + entry.calories, 0);
+    const protein = todaysEntries.reduce((sum, entry) => sum + entry.protein, 0);
     return { calories, protein };
+  }, [todaysEntries]);
+
+  const historyStats = useMemo(() => {
+    const grouped = new Map<string, FoodEntry[]>();
+    for (const entry of entries) {
+      const list = grouped.get(entry.dateKey) ?? [];
+      list.push(entry);
+      grouped.set(entry.dateKey, list);
+    }
+    const days = [...grouped.values()];
+    if (days.length === 0) return { avgProtein: 0, avgCalories: 0, bestProtein: 0 };
+    const proteinDays = days.map((day) => day.reduce((sum, entry) => sum + entry.protein, 0));
+    const calorieDays = days.map((day) => day.reduce((sum, entry) => sum + entry.calories, 0));
+    return {
+      avgProtein: Math.round(proteinDays.reduce((a, b) => a + b, 0) / proteinDays.length),
+      avgCalories: Math.round(calorieDays.reduce((a, b) => a + b, 0) / calorieDays.length),
+      bestProtein: Math.max(...proteinDays)
+    };
   }, [entries]);
 
   const proteinTarget = 180;
@@ -57,6 +109,7 @@ export default function HomePage() {
         calories: entry.calories,
         protein: entry.protein,
         timeLabel: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        dateKey: todayKey,
       },
       ...current,
     ]);
@@ -73,6 +126,7 @@ export default function HomePage() {
         protein: Number(draft.protein) || 0,
         note: draft.note.trim() || undefined,
         timeLabel: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        dateKey: todayKey,
       },
       ...current,
     ]);
@@ -134,7 +188,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="entryList">
-              {entries.map((entry) => (
+              {todaysEntries.map((entry) => (
                 <article className="entryRow" key={entry.id}>
                   <div>
                     <p className="mealType">{entry.mealType} · {entry.timeLabel}</p>
@@ -197,9 +251,9 @@ export default function HomePage() {
             </div>
           </div>
           <div className="historyStats">
-            <div><span>Avg protein</span><strong>148g</strong></div>
-            <div><span>Avg calories</span><strong>2,210</strong></div>
-            <div><span>Best day</span><strong>182g protein</strong></div>
+            <div><span>Avg protein</span><strong>{historyStats.avgProtein}g</strong></div>
+            <div><span>Avg calories</span><strong>{historyStats.avgCalories.toLocaleString()}</strong></div>
+            <div><span>Best day</span><strong>{historyStats.bestProtein}g protein</strong></div>
           </div>
           <p className="historyNote">This is intentionally lightweight for v1 — enough to spot consistency without becoming a nutrition dashboard from hell.</p>
         </section>
