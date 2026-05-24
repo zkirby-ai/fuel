@@ -1,65 +1,81 @@
 # Fuel — Product Spec
 
 ## Summary
-Fuel is a mobile-first food logger PWA built around one principle: logging food should be fast enough that the user actually does it.
-
-It is protein-forward and calorie-aware, but deliberately avoids turning food tracking into a giant database chore or guilt machine.
+Fuel is a mobile-first food logger with a protein-forward bias.
+It is built to be fast enough for real daily use and light enough that logging food does not feel like opening a corporate nutrition spreadsheet.
 
 ## Product goal
-Help users maintain awareness of intake — especially protein and daily calories — through a low-friction daily logging flow.
+Help users stay aware of intake — especially protein and calories — with as little friction and guilt as possible.
 
 ## Product principles
-- Fast logging beats perfect logging
-- Protein-forward is a better v1 than full macro obsession
-- Repeated meals should be easy to reuse
-- The app should feel neutral and useful, not judgmental
-- Mobile-first, one-hand usable, quick to open
+- fast daily logging
+- protein-forward, not macro-maniac by default
+- low judgment
+- mobile-first and one-hand usable
+- useful enough to stick
 
-## Core shape
-### Tabs
-1. **Today**
-   - daily calories
-   - daily protein
-   - quick-add meals
-   - today’s entries
+## Intended user
+Primary user:
+- someone who wants better intake awareness
+- someone training, trying to hit protein, or loosely tracking calories
+- someone who hates overbuilt food apps
 
-2. **Log**
-   - manual meal entry
-   - meal type
-   - calories
-   - protein
-   - optional note
+## v1 shape
+### Today
+- total calories
+- total protein
+- quick-add repeat meals
+- list of meals already logged today
 
-3. **History**
-   - recent trends
-   - average calories / protein
-   - consistency view later
+### Log
+- add meal manually
+- food name
+- meal type
+- calories
+- protein
+- optional note
 
-## MVP scope
-- manual food entries
-- quick-add common meals
-- meal categories
-- calorie + protein totals
-- recent history surface
-- clean mobile UI
+### History
+- very lightweight pattern view
+- enough to show consistency trends
+- not a huge analytics dashboard yet
 
-## Non-goals for v1
-- barcode scanning
-- giant nutrition database
-- social features
-- recipe system
-- macro/micro overkill
-- shamey weight-loss UX
-
-## Design direction
+## Nice characteristics
+The app should feel:
 - clean
 - calm
-- useful daily instrument
-- slightly performance-oriented, but not harsh
+- practical
+- non-punitive
+
+## Non-goals for v1
+- giant food database
+- barcode scanner
+- micronutrient overkill
+- social features
+- recipe management
+- full MyFitnessPal competitor complexity
+
+## Feature roadmap
+### v1
+- manual logging
+- quick-add favorites/recent meals
+- daily calories + protein totals
+- mobile-first PWA shell
+
+### v2
+- edit/delete entries
+- reusable recent meals
+- better history and daily summaries
+- targets by user preference
+
+### v3
+- streaks / adherence views
+- richer macro support
+- optional reminders
+- meal templates / recurring meals
 
 ## Success criteria
-Fuel is successful if:
-- users can log a meal in seconds
-- protein totals stay visible and actionable
-- repeated foods are easy to reuse
-- the app feels lighter than traditional food trackers
+Fuel wins if:
+- it is fast enough that the user actually logs meals
+- protein and calorie awareness improves
+- it stays simple instead of decaying into nutrition sludge
