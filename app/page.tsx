@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' | 'Drink';
 type Tab = 'today' | 'log' | 'history';
+type StomachStatus = 'Good' | 'Okay' | 'Off' | 'Hurting';
+type MealReaction = 'Fine' | 'Bloated' | 'Crampy' | 'Reflux' | 'Nauseous';
 
 type FoodEntry = {
   id: string;
@@ -14,12 +16,15 @@ type FoodEntry = {
   note?: string;
   timeLabel: string;
   dateKey: string;
+  reaction?: MealReaction | null;
 };
 
+type DayStatusMap = Record<string, { stomach: StomachStatus | null; note?: string }>;
+
 const SAMPLE_ENTRIES: FoodEntry[] = [
-  { id: '1', name: 'Greek yogurt + berries', mealType: 'Breakfast', calories: 320, protein: 27, timeLabel: '8:40 AM', dateKey: 'sample' },
-  { id: '2', name: 'Chicken rice bowl', mealType: 'Lunch', calories: 610, protein: 46, timeLabel: '1:15 PM', dateKey: 'sample' },
-  { id: '3', name: 'Protein shake', mealType: 'Snack', calories: 210, protein: 30, timeLabel: '4:20 PM', dateKey: 'sample' },
+  { id: '1', name: 'Greek yogurt + berries', mealType: 'Breakfast', calories: 320, protein: 27, timeLabel: '8:40 AM', dateKey: 'sample', reaction: 'Fine' },
+  { id: '2', name: 'Chicken rice bowl', mealType: 'Lunch', calories: 610, protein: 46, timeLabel: '1:15 PM', dateKey: 'sample', reaction: 'Fine' },
+  { id: '3', name: 'Protein shake', mealType: 'Snack', calories: 210, protein: 30, timeLabel: '4:20 PM', dateKey: 'sample', reaction: 'Bloated' },
 ];
 
 const QUICK_ADD = [
@@ -28,6 +33,9 @@ const QUICK_ADD = [
   { name: 'Eggs + toast', mealType: 'Breakfast' as MealType, calories: 420, protein: 24 },
   { name: 'Chicken rice bowl', mealType: 'Lunch' as MealType, calories: 610, protein: 46 },
 ];
+
+const STOMACH_OPTIONS: StomachStatus[] = ['Good', 'Okay', 'Off', 'Hurting'];
+const REACTION_OPTIONS: MealReaction[] = ['Fine', 'Bloated', 'Crampy', 'Reflux', 'Nauseous'];
 
 function localDateKey(date = new Date()) {
   const y = date.getFullYear();
@@ -46,21 +54,35 @@ function loadEntries(): FoodEntry[] {
   }
 }
 
+function loadDayStatus(): DayStatusMap {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem('fuel-day-status');
+    return raw ? (JSON.parse(raw) as DayStatusMap) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function HomePage() {
   const todayKey = localDateKey();
   const [tab, setTab] = useState<Tab>('today');
   const [entries, setEntries] = useState<FoodEntry[]>([]);
+  const [dayStatus, setDayStatus] = useState<DayStatusMap>({});
   const [draft, setDraft] = useState({
     name: '',
     mealType: 'Dinner' as MealType,
     calories: '',
     protein: '',
-    note: ''
+    note: '',
+    reaction: 'Fine' as MealReaction,
   });
 
   useEffect(() => {
-    const saved = loadEntries();
-    setEntries(saved.length ? saved : SAMPLE_ENTRIES.map((entry) => ({ ...entry, dateKey: todayKey })));
+    const savedEntries = loadEntries();
+    const savedDayStatus = loadDayStatus();
+    setEntries(savedEntries.length ? savedEntries : SAMPLE_ENTRIES.map((entry) => ({ ...entry, dateKey: todayKey })));
+    setDayStatus(savedDayStatus);
   }, [todayKey]);
 
   useEffect(() => {
@@ -68,10 +90,17 @@ export default function HomePage() {
     window.localStorage.setItem('fuel-entries', JSON.stringify(entries));
   }, [entries]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('fuel-day-status', JSON.stringify(dayStatus));
+  }, [dayStatus]);
+
   const todaysEntries = useMemo(
     () => entries.filter((entry) => entry.dateKey === todayKey),
     [entries, todayKey]
   );
+
+  const todaysStatus = dayStatus[todayKey] ?? { stomach: null, note: '' };
 
   const totals = useMemo(() => {
     const calories = todaysEntries.reduce((sum, entry) => sum + entry.calories, 0);
@@ -87,15 +116,25 @@ export default function HomePage() {
       grouped.set(entry.dateKey, list);
     }
     const days = [...grouped.values()];
-    if (days.length === 0) return { avgProtein: 0, avgCalories: 0, bestProtein: 0 };
+    const statuses = Object.values(dayStatus).map((item) => item.stomach).filter(Boolean) as StomachStatus[];
+    if (days.length === 0) return { avgProtein: 0, avgCalories: 0, bestProtein: 0, stomachBadDays: 0, topReaction: '—' };
     const proteinDays = days.map((day) => day.reduce((sum, entry) => sum + entry.protein, 0));
     const calorieDays = days.map((day) => day.reduce((sum, entry) => sum + entry.calories, 0));
+    const badDays = statuses.filter((status) => status === 'Off' || status === 'Hurting').length;
+    const reactionCounts = new Map<string, number>();
+    for (const entry of entries) {
+      if (!entry.reaction || entry.reaction === 'Fine') continue;
+      reactionCounts.set(entry.reaction, (reactionCounts.get(entry.reaction) ?? 0) + 1);
+    }
+    const topReaction = [...reactionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
     return {
       avgProtein: Math.round(proteinDays.reduce((a, b) => a + b, 0) / proteinDays.length),
       avgCalories: Math.round(calorieDays.reduce((a, b) => a + b, 0) / calorieDays.length),
-      bestProtein: Math.max(...proteinDays)
+      bestProtein: Math.max(...proteinDays),
+      stomachBadDays: badDays,
+      topReaction,
     };
-  }, [entries]);
+  }, [entries, dayStatus]);
 
   const proteinTarget = 180;
   const calorieTarget = 2400;
@@ -110,6 +149,7 @@ export default function HomePage() {
         protein: entry.protein,
         timeLabel: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         dateKey: todayKey,
+        reaction: 'Fine',
       },
       ...current,
     ]);
@@ -127,11 +167,26 @@ export default function HomePage() {
         note: draft.note.trim() || undefined,
         timeLabel: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         dateKey: todayKey,
+        reaction: draft.reaction,
       },
       ...current,
     ]);
-    setDraft({ name: '', mealType: 'Dinner', calories: '', protein: '', note: '' });
+    setDraft({ name: '', mealType: 'Dinner', calories: '', protein: '', note: '', reaction: 'Fine' });
     setTab('today');
+  }
+
+  function updateTodayStatus(stomach: StomachStatus | null) {
+    setDayStatus((current) => ({
+      ...current,
+      [todayKey]: { ...(current[todayKey] ?? {}), stomach },
+    }));
+  }
+
+  function updateTodayNote(note: string) {
+    setDayStatus((current) => ({
+      ...current,
+      [todayKey]: { ...(current[todayKey] ?? {}), stomach: current[todayKey]?.stomach ?? null, note },
+    }));
   }
 
   return (
@@ -139,7 +194,7 @@ export default function HomePage() {
       <header className="hero card">
         <p className="eyebrow">Fuel</p>
         <h1>Low-friction food logging.</h1>
-        <p className="lede">Track meals, calories, and protein without turning eating into spreadsheet punishment.</p>
+        <p className="lede">Track meals, protein, and whether your stomach feels bad — without turning this into a medical spreadsheet.</p>
       </header>
 
       <nav className="tabRow" aria-label="Sections">
@@ -161,6 +216,32 @@ export default function HomePage() {
               <strong>{totals.protein}g</strong>
               <small>{proteinTarget - totals.protein > 0 ? `${proteinTarget - totals.protein}g to target` : 'Target hit'}</small>
             </div>
+          </section>
+
+          <section className="card stomachCard">
+            <div className="sectionHead">
+              <div>
+                <p className="eyebrow">Today</p>
+                <h2>Stomach status</h2>
+              </div>
+            </div>
+            <div className="statusChips">
+              {STOMACH_OPTIONS.map((status) => (
+                <button
+                  key={status}
+                  className={`statusChip ${todaysStatus.stomach === status ? 'active' : ''}`}
+                  onClick={() => updateTodayStatus(status)}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="statusNote"
+              value={todaysStatus.note ?? ''}
+              onChange={(e) => updateTodayNote(e.target.value)}
+              placeholder="Optional note: stomach hurt after lunch / dairy seemed bad / felt fine until late night"
+            />
           </section>
 
           <section className="card quickAddCard">
@@ -193,6 +274,9 @@ export default function HomePage() {
                   <div>
                     <p className="mealType">{entry.mealType} · {entry.timeLabel}</p>
                     <h3>{entry.name}</h3>
+                    <div className="reactionRow">
+                      <span className={`reactionTag ${entry.reaction && entry.reaction !== 'Fine' ? 'warn' : ''}`}>{entry.reaction ?? 'Fine'}</span>
+                    </div>
                     {entry.note ? <p className="note">{entry.note}</p> : null}
                   </div>
                   <div className="entryMeta">
@@ -233,9 +317,15 @@ export default function HomePage() {
               <span>Protein (g)</span>
               <input inputMode="numeric" value={draft.protein} onChange={(e) => setDraft({ ...draft, protein: e.target.value })} placeholder="40" />
             </label>
+            <label>
+              <span>Stomach after</span>
+              <select value={draft.reaction} onChange={(e) => setDraft({ ...draft, reaction: e.target.value as MealReaction })}>
+                {REACTION_OPTIONS.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
             <label className="full">
               <span>Note</span>
-              <textarea value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="Optional context: restaurant / dessert / late meal / felt too full" />
+              <textarea value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="Optional context: restaurant / dessert / spicy / dairy / felt too full" />
             </label>
           </div>
           <button className="primaryButton" onClick={addManual}>Log meal</button>
@@ -250,12 +340,14 @@ export default function HomePage() {
               <h2>Recent pattern</h2>
             </div>
           </div>
-          <div className="historyStats">
+          <div className="historyStats stomachHistoryStats">
             <div><span>Avg protein</span><strong>{historyStats.avgProtein}g</strong></div>
             <div><span>Avg calories</span><strong>{historyStats.avgCalories.toLocaleString()}</strong></div>
             <div><span>Best day</span><strong>{historyStats.bestProtein}g protein</strong></div>
+            <div><span>Bad stomach days</span><strong>{historyStats.stomachBadDays}</strong></div>
+            <div><span>Most common issue</span><strong>{historyStats.topReaction}</strong></div>
           </div>
-          <p className="historyNote">This is intentionally lightweight for v1 — enough to spot consistency without becoming a nutrition dashboard from hell.</p>
+          <p className="historyNote">This keeps it lightweight, but it should already help you notice when stomach pain clusters around certain meals or reaction types.</p>
         </section>
       ) : null}
     </main>

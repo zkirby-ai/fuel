@@ -8,6 +8,7 @@
   --text-2: #60717d;
   --accent: #5fb86a;
   --accent-2: #122e18;
+  --warn: #d07d43;
   --shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
 }
 
@@ -103,9 +104,38 @@ h1 {
   margin-top: 6px;
   color: var(--text-2);
 }
-.quickAddCard, .entriesCard, .formCard, .historyCard { padding: 18px; }
+.quickAddCard, .entriesCard, .formCard, .historyCard, .stomachCard { padding: 18px; }
 .sectionHead { display: flex; justify-content: space-between; align-items: end; margin-bottom: 12px; }
 .sectionHead h2 { font-size: 1.35rem; letter-spacing: -0.03em; }
+.statusChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.statusChip {
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.62);
+  color: var(--text-2);
+  font-weight: 700;
+}
+.statusChip.active {
+  background: rgba(208,125,67,0.12);
+  border-color: rgba(208,125,67,0.28);
+  color: #8f5429;
+}
+.statusNote {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.74);
+  color: var(--text);
+  min-height: 88px;
+  resize: vertical;
+}
 .quickGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -132,6 +162,20 @@ h1 {
 }
 .mealType, .note { color: var(--text-2); font-size: 0.92rem; }
 .entryRow h3 { margin: 4px 0; font-size: 1.02rem; }
+.reactionRow { margin: 0 0 6px; }
+.reactionTag {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(95,184,106,0.10);
+  color: #396f41;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.reactionTag.warn {
+  background: rgba(208,125,67,0.12);
+  color: #8f5429;
+}
 .entryMeta { text-align: right; }
 .entryMeta strong { display: block; font-size: 1.1rem; }
 .entryMeta span { color: var(--text-2); font-size: 0.92rem; }
@@ -171,6 +215,9 @@ h1 {
   gap: 10px;
   margin-bottom: 12px;
 }
+.stomachHistoryStats {
+  grid-template-columns: repeat(2, 1fr);
+}
 .historyStats > div {
   padding: 14px;
   border-radius: 18px;
@@ -186,7 +233,7 @@ h1 {
 .historyNote { color: var(--text-2); line-height: 1.5; }
 
 @media (max-width: 640px) {
-  .totalsCard, .quickGrid, .formGrid, .historyStats {
+  .totalsCard, .quickGrid, .formGrid, .historyStats, .stomachHistoryStats {
     grid-template-columns: 1fr;
   }
 }
